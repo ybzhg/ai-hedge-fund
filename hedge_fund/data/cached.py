@@ -51,12 +51,13 @@ class CachedDataClient:
     def __init__(
         self,
         client: DataClient,
-        cache_dir: Path | str = DEFAULT_CACHE_DIR,
+        cache_dir: Path | str | None = None,
         refresh: bool = False,
         live: bool = False,
     ) -> None:
         self._client = client
-        self._dir = Path(cache_dir)
+        namespace = getattr(type(client), "cache_namespace", "")
+        self._dir = DEFAULT_CACHE_DIR / namespace if cache_dir is None else Path(cache_dir)
         self._refresh = refresh
         self._live = live
 

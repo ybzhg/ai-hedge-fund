@@ -18,6 +18,7 @@ from textual.widgets.option_list import Option
 
 from hedge_fund import paths
 from hedge_fund.data import CachedDataClient, FDClient, PriceSnapshot
+from hedge_fund.data.yahoo import study_data, uses_yahoo
 from hedge_fund.data.bars import is_intraday
 from hedge_fund.fund import FundSpec
 from hedge_fund.llm import make_llm
@@ -215,7 +216,7 @@ class PaperScreen(Screen):
                 or (snap.ledger.sessions() or [None])[-1] != snap.last_session):
             self._populate(snap.deployed.name)
             return
-        if snap.state is not None and snap.state.positions:
+        if snap.state is not None and snap.state.positions and not uses_yahoo(snap.spec):
             self._fetch_quotes(snap.deployed.name, sorted(snap.state.positions))
 
     @work(thread=True, group="quotes", exclusive=True)
@@ -275,7 +276,7 @@ class PaperScreen(Screen):
         directory = snap.directory
 
         def resume() -> None:
-            if demand_run_keys(self.app, resume):
+            if uses_yahoo(snap.spec) or demand_run_keys(self.app, resume):
                 self.app.push_screen(RunConfirmScreen(directory),
                                      lambda verdict: self._after_confirm(directory, verdict))
         resume()
@@ -298,7 +299,7 @@ class PaperScreen(Screen):
             return
 
         def resume() -> None:
-            if demand_run_keys(self.app, resume):
+            if uses_yahoo(snap.spec) or demand_run_keys(self.app, resume):
                 try:
                     spawn_runner(snap.directory)
                 except OSError as exc:
@@ -495,7 +496,7 @@ class RunSessionScreen(Screen):
             spec = deployed.spec
             ledger = Ledger(directory)
             state = ledger.replay(spec.capital)
-            with FDClient() as raw:
+            with study_data(spec, FDClient) as raw:
                 data = CachedDataClient(raw, live=spec.is_intraday)
                 if self._redo:
                     if state.last_session is None:
@@ -527,7 +528,7 @@ class RunSessionScreen(Screen):
             # no client and simply runs.
             model = (cls(llm=make_llm(on_token=desk.feed))
                      if issubclass(cls, LLMAgent) else cls())
-            with FDClient() as raw:
+            with study_data(spec, FDClient) as raw:
                 fd = CachedDataClient(raw)
                 for as_of in dates:
                     for ticker in universe:
@@ -738,6 +739,6 @@ def _resolve_next_session(directory: Path) -> tuple[DeployedFund, FundState, str
     market for its closes; a minute fund's bar is read off the clock)."""
     deployed = load_deployed(directory)
     state = Ledger(directory).replay(deployed.spec.capital)
-    with FDClient() as raw:
+    with study_data(deployed.spec, FDClient) as raw:
         due = next_session(CachedDataClient(raw), deployed.spec, state.last_session)
     return deployed, state, due

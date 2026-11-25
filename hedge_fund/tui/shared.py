@@ -39,6 +39,7 @@ DISPLAY_NAMES = {
     "lynch": "Peter Lynch",
     "druckenmiller": "Stanley Druckenmiller",
     "pead": "post-earnings drift",
+    "momentum": "price momentum",
 }
 
 SHORT_NAMES = {
@@ -48,6 +49,7 @@ SHORT_NAMES = {
     "lynch": "Lynch",
     "druckenmiller": "Druckenmiller",
     "pead": "PEAD",
+    "momentum": "Momentum",
 }
 
 MODE_LABELS: dict[PortfolioMode, str] = {"long_only": "Long-only", "long_short": "Long/short", "dollar_neutral": "Dollar-neutral"}

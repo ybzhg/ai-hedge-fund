@@ -35,9 +35,25 @@ Then run it from anywhere:
 aihf
 ```
 
+### Yahoo Finance study fund
+
+From the repository checkout, install the CLI with the optional Yahoo Finance client
+and deploy the example study mandate:
+
+```bash
+uv tool install --with yfinance .
+aihf paper create yahoo-study --mandate examples/yahoo-study.yaml --universe AAPL,MSFT
+aihf paper tick yahoo-study
+```
+
+Daily price-only momentum mandates use Yahoo Finance. The study fund needs
+no Financial Datasets or model API key. It uses the price return over ten sessions
+for a long-only signal and rebalances weekly. The interactive app
+can also advance the fund from its Paper Trading screen.
+
 ### API keys
 
-The app asks for keys the first time it needs them and saves them to `~/.hedge-fund/.env` — nothing to configure up front. It needs:
+The app asks for keys the first time it needs them and saves them to `~/.hedge-fund/.env` — nothing to configure up front. Financial Datasets mandates with LLM agents need:
 
 - A [Financial Datasets](https://financialdatasets.ai) API key, for prices, fundamentals, and earnings. Or, instead of a key, the private key of a Base wallet holding USDC: every call then pays for itself with [x402](https://docs.financialdatasets.ai/x402) (`pip install 'aihf[x402]'`; last 365 days of data, non-professional use).
 - One model API key for the investor agents. Supported providers: Anthropic, OpenAI, DeepSeek, Google, xAI, Kimi, TypeSafe (Jev).

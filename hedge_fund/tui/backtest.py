@@ -37,6 +37,7 @@ from hedge_fund.backtesting import (
 from hedge_fund.backtesting.research import last_universe, save_result
 from hedge_fund.brokers import Fill
 from hedge_fund.data import CachedDataClient, FDClient
+from hedge_fund.data.yahoo import study_data, uses_yahoo
 from hedge_fund.fund import discover_funds, Fund, FundSpec, normalize_universe
 from hedge_fund.pipeline import CycleRecord, history_days, history_start, SessionRecord
 from hedge_fund.scorecard import score
@@ -261,7 +262,7 @@ class BacktestScreen(Screen):
         assert self._spec is not None
 
         def resume() -> None:
-            if demand_run_keys(self.app, resume):
+            if uses_yahoo(self._spec) or demand_run_keys(self.app, resume):
                 self._begin(start, end, universe)
         resume()
 
@@ -293,7 +294,7 @@ class BacktestScreen(Screen):
              universe: list[str]) -> None:
         app = self.app
         try:
-            with FDClient() as raw:
+            with study_data(spec, FDClient) as raw:
                 schedule = build_schedule(CachedDataClient(raw), spec.benchmark, start, end, spec.rebalance)
             # A factor mandate fits betas on the benchmark's bars at every date too.
             names = [*universe, spec.benchmark] if spec.risk.has_factor_limits else universe
@@ -311,7 +312,7 @@ class BacktestScreen(Screen):
             def valuation(i: int, n: int, value: DailyValuation) -> None:
                 app.call_from_thread(self._board_valuation, value)
 
-            with FDClient() as raw:
+            with study_data(spec, FDClient) as raw:
                 result = backtest_fund(fund, start, end, CachedDataClient(raw),
                                        universe, on_cycle=tick, on_valuation=valuation)
 
@@ -339,7 +340,7 @@ class BacktestScreen(Screen):
         bar = self.query_one("#warm-progress", ProgressBar)
 
         def prefetch(ticker: str, dates: list[str]) -> None:
-            with FDClient() as raw:  # own client per task (requests isn't shared-safe)
+            with study_data(spec, FDClient) as raw:
                 fd = CachedDataClient(raw)
                 if needs_facts:
                     fd.get_company_facts(ticker)
@@ -370,7 +371,7 @@ class BacktestScreen(Screen):
             who = display[agent_name]
             cls = ALPHA_MODEL_REGISTRY[agent_name]  # own instance per thread
             model = cls(blind=True) if issubclass(cls, LLMAgent) else cls()
-            with FDClient() as raw:
+            with study_data(spec, FDClient) as raw:
                 fd = CachedDataClient(raw)
                 for as_of in grid:
                     for ticker in universe:

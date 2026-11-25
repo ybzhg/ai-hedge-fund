@@ -61,7 +61,8 @@ from pathlib import Path
 from rich.console import Console
 
 from hedge_fund.backtesting import backtest_fund, save_result
-from hedge_fund.data import CachedDataClient, CallMeter, FDClient
+from hedge_fund.data import CachedDataClient, CallMeter, FDClient, FDClientError
+from hedge_fund.data.yahoo import study_data
 from hedge_fund.data.bars import is_intraday
 from hedge_fund.data.sessions import completed_through
 from hedge_fund.fund import Fund, load_spec, normalize_universe
@@ -111,7 +112,7 @@ def main() -> None:
             _backtest(args, parser, console)
         else:
             _paper(args, parser, console)
-    except (FundHalted, NothingDue, LedgerError) as exc:
+    except (FundHalted, NothingDue, LedgerError, FDClientError) as exc:
         console.print(f"[red]{exc}[/]")
         sys.exit(1)
 
@@ -224,7 +225,7 @@ def _backtest(args, parser: argparse.ArgumentParser, console: Console) -> None:
     fund = Fund(spec, blind=True)
 
     meter = CallMeter()
-    with FDClient(meter=meter) as raw:
+    with study_data(spec, FDClient, meter=meter) as raw:
         fd = CachedDataClient(raw)
         with console.status(
             f"[cyan]{spec.name}: backtesting {start} → {end} "
@@ -288,7 +289,7 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
 
     if args.action == "tick":
         deployed = load_deployed(directory)
-        with FDClient() as raw:
+        with study_data(deployed.spec, FDClient) as raw:
             fd = CachedDataClient(raw, live=deployed.spec.is_intraday)
             verb = "running the latest session again" if args.again else "advancing one session"
             with console.status(
@@ -311,7 +312,7 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
             detail = fields.get("reason") or (f"{fields.get('bars_skipped')} bars skipped" if "bars_skipped" in fields else "")
             console.print(f"[yellow]{kind}[/] {fields.get('from') or 'start'} → {fields.get('to')}  {detail}".rstrip())
 
-        with FDClient() as raw:
+        with study_data(spec, FDClient) as raw:
             try:
                 serve(directory, CachedDataClient(raw, live=spec.is_intraday),
                       on_record=lambda record: console.print(_tick_summary(deployed.name, record)),
